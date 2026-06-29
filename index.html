@@ -3,41 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ติดตามรถรับส่ง - MD Shuttle Bus</title>
+    <title>MD Shuttle Bus - จอดิจิทัลบอกเวลา</title>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { font-family: sans-serif; background-color: #fdfbf7; color: #002244; margin: 0; padding: 15px; }
-        h1 { font-size: 26px; text-align: center; color: #004080; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        label { font-size: 20px; font-weight: bold; display: block; margin-bottom: 8px; }
-        input { width: 100%; padding: 15px; font-size: 20px; margin-bottom: 15px; border: 2px solid #004080; border-radius: 8px; box-sizing: border-box; }
-        button { background-color: #004080; color: white; font-size: 22px; font-weight: bold; padding: 15px; border: none; border-radius: 8px; width: 100%; cursor: pointer; }
-        #map { height: 300px; width: 100%; border-radius: 8px; margin-top: 15px; display: none; border: 2px solid #ccc; }
-        .info-box { background-color: #e6f2ff; padding: 15px; border-radius: 8px; margin-top: 15px; font-size: 20px; display: none; border-left: 6px solid #004080; }
-        .highlight { font-size: 26px; color: #cc0000; font-weight: bold; }
+        body { font-family: 'Chakra Petch', sans-serif; background-color: #f7f9fc; color: #1a1a1a; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        
+        /* สไตล์ Minimal */
+        .card { background: #fff; padding: 20px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        input { width: 100%; padding: 15px; font-size: 18px; font-family: 'Chakra Petch', sans-serif; margin-bottom: 15px; border: 1px solid #e0e0e0; border-radius: 12px; box-sizing: border-box; background: #fafafa; }
+        button { background-color: #1a1a1a; color: #fff; font-size: 18px; font-weight: 700; font-family: 'Chakra Petch', sans-serif; padding: 15px; border: none; border-radius: 12px; width: 100%; cursor: pointer; transition: 0.3s; }
+        button:hover { background-color: #333; }
+        
+        /* ป้าย Digital Board */
+        .digital-board { display: none; background: #1a1a1a; color: #fff; text-align: center; padding: 30px 20px; border-radius: 20px; margin-top: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+        .digital-board h2 { margin: 0; color: #a3a3a3; font-size: 20px; font-weight: 400; }
+        .eta-time { font-size: 80px; font-weight: 700; color: #00e676; line-height: 1; margin: 10px 0; text-shadow: 0 0 20px rgba(0,230,118,0.4); }
+        .eta-unit { font-size: 24px; color: #a3a3a3; }
+        .distance-info { font-size: 18px; color: #ccc; margin-top: 15px; }
+
+        /* ปุ่มเรียกรถด่วน */
+        .btn-express { background-color: #ff3366; margin-top: 10px; box-shadow: 0 5px 15px rgba(255,51,102,0.3); }
+        .btn-express:hover { background-color: #e62e5c; }
+
+        /* Modal เรียกรถด่วน */
+        #expressModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; justify-content: center; align-items: center; }
+        .modal-content { background: #fff; width: 90%; max-width: 500px; padding: 25px; border-radius: 20px; max-height: 90vh; overflow-y: auto; }
+        .modal-content h3 { margin-top: 0; color: #ff3366; }
+        #modalMap { height: 250px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #ddd; }
+        .close-btn { background: #eee; color: #333; margin-top: 10px; }
     </style>
 </head>
 <body>
-    <h1>📍 MD Shuttle Bus</h1>
-    
-    <div class="card">
-        <label for="busSelect">หมายเลขรถที่ต้องการติดตาม</label>
-        <input type="text" id="busSelect" placeholder="ระบุหมายเลขรถ เช่น Bus-01">
-        <button id="trackBtn">ค้นหาและติดตามรถ</button>
+    <div class="container">
+        <!-- ส่วนติดตามรถ -->
+        <div class="card">
+            <h2 style="margin-top:0;">📍 ติดตามรถรับส่ง</h2>
+            <input type="text" id="busSelect" placeholder="ระบุหมายเลขรถ (เช่น Bus-01)">
+            <button id="trackBtn">แสดงระยะเวลาจัดรถ</button>
+            <button id="openExpressBtn" class="btn-express">🛺 เรียกรถด่วน (รถกอล์ฟไฟฟ้า)</button>
+        </div>
+
+        <!-- จอดิจิทัล -->
+        <div id="digitalBoard" class="digital-board">
+            <h2>กำลังจะมาถึงใน</h2>
+            <div class="eta-time"><span id="eta">-</span> <span class="eta-unit">นาที</span></div>
+            <div class="distance-info">
+                ระยะห่าง <span id="distance">-</span> กม. • <span id="displayDriver">กำลังคำนวณ...</span>
+            </div>
+        </div>
     </div>
 
-    <div id="infoBox" class="info-box">
-        <div>คนขับ: <span id="displayDriver">-</span></div>
-        <div style="margin-top:10px;">ระยะห่างจากคุณ: <span id="distance" class="highlight">-</span> กม.</div>
-        <div style="margin-top:10px;">เวลามาถึงโดยประมาณ: <span id="eta" class="highlight">-</span> นาที</div>
+    <!-- Modal เรียกรถด่วน -->
+    <div id="expressModal">
+        <div class="modal-content">
+            <h3>🛺 เรียกรถด่วน (รถกอล์ฟ)</h3>
+            <p style="font-size: 14px; color: #666; margin-bottom: 10px;">กรุณากรอกข้อมูล และปักหมุดจุดรับ-ส่งบนแผนที่</p>
+            <input type="text" id="reqName" placeholder="ชื่อผู้เรียก" required>
+            <input type="tel" id="reqPhone" placeholder="เบอร์โทรศัพท์" required>
+            
+            <p style="font-size: 14px; font-weight: 600; margin: 5px 0;">1. แตะแผนที่เพื่อปัก <span style="color:green;">หมุดรับ</span> | 2. แตะอีกครั้งเพื่อปัก <span style="color:red;">หมุดส่ง</span></p>
+            <div id="modalMap"></div>
+            
+            <button id="submitExpressBtn" class="btn-express">ยืนยันการเรียกรถด่วน</button>
+            <button id="closeExpressBtn" class="close-btn">ยกเลิก</button>
+        </div>
     </div>
-
-    <div id="map"></div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
-        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-database.js";
+        import { getDatabase, ref, onValue, push, set } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDMptdLpLEdbeVFKZj82M0gyoV2m_2y5Pk",
@@ -47,75 +84,98 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        let map, userMarker, busMarker;
+        // --- ส่วนคำนวณเวลา ---
         let userLat, userLng;
-
-        // คำนวณระยะทางเส้นตรง (Haversine Formula)
         function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371; // รัศมีโลก กิโลเมตร
+            const R = 6371;
             const dLat = (lat2 - lat1) * Math.PI / 180;
             const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                      Math.sin(dLon/2) * Math.sin(dLon/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            return R * c;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         }
 
         document.getElementById('trackBtn').addEventListener('click', () => {
             const busId = document.getElementById('busSelect').value;
             if (!busId) { alert('กรุณาระบุหมายเลขรถ'); return; }
 
-            // ดึงพิกัดผู้ใช้
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition((pos) => {
                     userLat = pos.coords.latitude;
                     userLng = pos.coords.longitude;
-                    
-                    document.getElementById('map').style.display = 'block';
-                    document.getElementById('infoBox').style.display = 'block';
+                    document.getElementById('digitalBoard').style.display = 'block';
 
-                    if (!map) {
-                        map = L.map('map').setView([userLat, userLng], 15);
-                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-                        userMarker = L.marker([userLat, userLng]).addTo(map).bindPopup("คุณอยู่ที่นี่").openPopup();
-                    }
-
-                    // ฟังการเปลี่ยนแปลงตำแหน่งรถจาก Firebase
                     const busRef = ref(db, 'buses/' + busId);
                     onValue(busRef, (snapshot) => {
                         const data = snapshot.val();
                         if (data) {
-                            document.getElementById('displayDriver').innerText = data.driver;
-                            
                             const dist = calculateDistance(userLat, userLng, data.lat, data.lng);
-                            document.getElementById('distance').innerText = dist.toFixed(2);
-                            
-                            // สมมติความเร็วรถใน รพ. 20 กม./ชม.
-                            const timeMins = (dist / 20) * 60; 
-                            document.getElementById('eta').innerText = Math.ceil(timeMins);
-
-                            if (busMarker) {
-                                busMarker.setLatLng([data.lat, data.lng]);
-                            } else {
-                                // ไอคอนรถสีแดง
-                                const busIcon = L.icon({
-                                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-                                    iconSize: [25, 41], iconAnchor: [12, 41]
-                                });
-                                busMarker = L.marker([data.lat, data.lng], {icon: busIcon}).addTo(map).bindPopup("รถรับส่งอยู่ที่นี่");
-                            }
-                            
-                            // ปรับมุมมองให้อยู่กึ่งกลางระหว่างรถและคน
-                            const group = new L.featureGroup([userMarker, busMarker]);
-                            map.fitBounds(group.getBounds(), {padding: [30, 30]});
+                            document.getElementById('distance').innerText = dist.toFixed(1);
+                            const timeMins = Math.ceil((dist / 20) * 60); // ความเร็ว 20km/h
+                            document.getElementById('eta').innerText = timeMins;
+                            document.getElementById('displayDriver').innerText = `คนขับ: ${data.driver}`;
                         } else {
-                            alert("ไม่พบข้อมูลรถหมายเลขนี้ หรือรถยังไม่เปิดระบบ");
+                            document.getElementById('displayDriver').innerText = 'ไม่พบข้อมูลรถในระบบ';
+                            document.getElementById('eta').innerText = '-';
                         }
                     });
-
-                }, () => { alert("กรุณาอนุญาตการเข้าถึงตำแหน่งที่ตั้ง (GPS)"); });
+                }, () => { alert("กรุณาเปิด GPS"); });
             }
+        });
+
+        // --- ส่วนเรียกรถด่วน ---
+        let expressMap, pickupMarker, dropoffMarker;
+        let pLat, pLng, dLat, dLng;
+
+        document.getElementById('openExpressBtn').addEventListener('click', () => {
+            document.getElementById('expressModal').style.display = 'flex';
+            
+            if (!expressMap) {
+                expressMap = L.map('modalMap').setView([16.4674, 102.8277], 16); // พิกัด รพ.
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(expressMap);
+                
+                expressMap.on('click', function(e) {
+                    if (!pickupMarker) {
+                        pLat = e.latlng.lat; pLng = e.latlng.lng;
+                        const icon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png', iconSize: [25,41], iconAnchor: [12,41]});
+                        pickupMarker = L.marker(e.latlng, {icon}).addTo(expressMap).bindPopup("จุดรับ").openPopup();
+                    } else if (!dropoffMarker) {
+                        dLat = e.latlng.lat; dLng = e.latlng.lng;
+                        const icon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png', iconSize: [25,41], iconAnchor: [12,41]});
+                        dropoffMarker = L.marker(e.latlng, {icon}).addTo(expressMap).bindPopup("จุดส่ง").openPopup();
+                    }
+                });
+            }
+            setTimeout(() => { expressMap.invalidateSize(); }, 100);
+        });
+
+        document.getElementById('closeExpressBtn').addEventListener('click', () => {
+            document.getElementById('expressModal').style.display = 'none';
+        });
+
+        document.getElementById('submitExpressBtn').addEventListener('click', () => {
+            const name = document.getElementById('reqName').value;
+            const phone = document.getElementById('reqPhone').value;
+            if(!name || !phone) { alert('กรุณากรอกชื่อและเบอร์โทร'); return; }
+            if(!pLat || !dLat) { alert('กรุณาปักหมุดจุดรับและจุดส่งบนแผนที่'); return; }
+
+            const newReqRef = push(ref(db, 'express_requests'));
+            set(newReqRef, {
+                name: name,
+                phone: phone,
+                pickupLat: pLat, pickupLng: pLng,
+                dropoffLat: dLat, dropoffLng: dLng,
+                status: 'waiting',
+                timestamp: Date.now()
+            }).then(() => {
+                alert('ส่งคำเรียกรถเรียบร้อยแล้ว');
+                document.getElementById('expressModal').style.display = 'none';
+                // Reset form
+                document.getElementById('reqName').value = '';
+                document.getElementById('reqPhone').value = '';
+                if(pickupMarker) expressMap.removeLayer(pickupMarker);
+                if(dropoffMarker) expressMap.removeLayer(dropoffMarker);
+                pickupMarker = null; dropoffMarker = null;
+            });
         });
     </script>
 </body>
