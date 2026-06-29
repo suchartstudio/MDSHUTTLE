@@ -3,41 +3,68 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard - MD Shuttle Bus</title>
+    <title>Admin - MD Shuttle Bus</title>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body { margin: 0; font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; background-color: #f4f4f9; }
-        #map-container { width: 70%; height: 100%; }
+        body { margin: 0; font-family: 'Chakra Petch', sans-serif; display: flex; height: 100vh; overflow: hidden; background-color: #f7f9fc; }
+        #map-container { width: 70%; height: 100%; position: relative; }
         #map { width: 100%; height: 100%; }
-        #sidebar { width: 30%; height: 100%; background: white; box-shadow: -2px 0 5px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
-        .header { background-color: #003366; color: white; padding: 20px; text-align: center; }
-        .header h2 { margin: 0; }
-        #bus-list { flex: 1; overflow-y: auto; padding: 15px; }
-        .bus-item { background: #f9f9f9; border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px; }
-        .bus-title { font-weight: bold; font-size: 18px; color: #003366; }
-        .bus-detail { font-size: 14px; color: #555; margin-top: 5px; }
-        .status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: #00C851; margin-right: 5px; }
+        
+        /* Sidebar Minimal */
+        #sidebar { width: 30%; height: 100%; background: #fff; display: flex; flex-direction: column; box-shadow: -5px 0 20px rgba(0,0,0,0.05); z-index: 1000; }
+        .header { background: #fff; padding: 20px; text-align: center; border-bottom: 1px solid #eee; }
+        .header h2 { margin: 0; font-size: 24px; color: #1a1a1a; font-weight: 700; }
+        
+        /* Tabs */
+        .tabs { display: flex; border-bottom: 1px solid #eee; }
+        .tab { flex: 1; text-align: center; padding: 15px; cursor: pointer; background: #fafafa; font-weight: 600; }
+        .tab.active { background: #fff; border-bottom: 3px solid #1a1a1a; color: #1a1a1a; }
+        .list-container { flex: 1; overflow-y: auto; padding: 20px; display: none; }
+        .list-container.active { display: block; }
+
+        /* Card Items */
+        .item-card { background: #fff; border: 1px solid #f0f0f0; padding: 15px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
+        .item-title { font-weight: 700; font-size: 18px; color: #1a1a1a; }
+        .item-desc { font-size: 14px; color: #666; margin-top: 5px; line-height: 1.4; }
+        .badge { background: #ff3366; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px; }
+
+        /* Map Toolbar */
+        .map-tools { position: absolute; top: 20px; left: 50px; z-index: 1000; background: rgba(255,255,255,0.9); padding: 10px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); backdrop-filter: blur(5px); }
+        .map-tools button { font-family: 'Chakra Petch', sans-serif; background: #fff; border: 1px solid #ddd; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+        .map-tools button:hover { background: #f0f0f0; }
+        .map-tools button.active { background: #1a1a1a; color: white; }
     </style>
 </head>
 <body>
-
     <div id="map-container">
+        <!-- เครื่องมือวาดแผนที่ -->
+        <div class="map-tools">
+            <span style="font-size:14px; margin-right:10px; font-weight:600;">🛠️ เครื่องมือแผนที่:</span>
+            <button id="toolStop">📍 เพิ่มจุดจอด (ป้ายรถ)</button>
+            <button id="toolRoute">〰️ วาดเส้นทาง</button>
+            <button id="toolCancel" style="display:none; background:#ff3366; color:white;">❌ ยกเลิก</button>
+        </div>
         <div id="map"></div>
     </div>
     
     <div id="sidebar">
         <div class="header">
-            <h2>Dashboard ควบคุมรถ</h2>
-            <p>โรงพยาบาลศรีนครินทร์</p>
+            <h2>Dashboard ผู้ดูแลระบบ</h2>
         </div>
-        <div id="bus-list">
-            </div>
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('buses')">🚍 รถรับส่งปกติ</div>
+            <div class="tab" onclick="switchTab('express')">🛺 เรียกรถด่วน</div>
+        </div>
+        
+        <div id="buses-list" class="list-container active"></div>
+        <div id="express-list" class="list-container"></div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
-        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-database.js";
+        import { getDatabase, ref, onValue, push, set } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDMptdLpLEdbeVFKZj82M0gyoV2m_2y5Pk",
@@ -47,51 +74,146 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // กำหนดพิกัดเริ่มต้นไปที่ รพ.ศรีนครินทร์ ขอนแก่น
-        const map = L.map('map').setView([16.4674, 102.8277], 15);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
+        // สลับ Tab
+        window.switchTab = function(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.list-container').forEach(c => c.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById(tabName + '-list').classList.add('active');
+        }
 
-        let markers = {};
+        const map = L.map('map').setView([16.4674, 102.8277], 16);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-        const busesRef = ref(db, 'buses');
-        onValue(busesRef, (snapshot) => {
+        // --- ระบบวาดแผนที่ (Admin Tools) ---
+        let currentTool = null;
+        let routePoints = [];
+        let drawingPolyline = null;
+
+        document.getElementById('toolStop').addEventListener('click', () => setTool('stop'));
+        document.getElementById('toolRoute').addEventListener('click', () => setTool('route'));
+        document.getElementById('toolCancel').addEventListener('click', () => setTool(null));
+
+        function setTool(tool) {
+            currentTool = tool;
+            document.getElementById('toolStop').classList.toggle('active', tool === 'stop');
+            document.getElementById('toolRoute').classList.toggle('active', tool === 'route');
+            document.getElementById('toolCancel').style.display = tool ? 'inline-block' : 'none';
+            map.getContainer().style.cursor = tool ? 'crosshair' : '';
+            
+            if (tool !== 'route' && drawingPolyline) {
+                map.removeLayer(drawingPolyline);
+                drawingPolyline = null;
+                routePoints = [];
+            }
+        }
+
+        map.on('click', (e) => {
+            if (currentTool === 'stop') {
+                const name = prompt("ตั้งชื่อจุดจอดรถ (เช่น ป้ายหน้าตึก ก.):");
+                if (name) {
+                    const newStopRef = push(ref(db, 'config/stops'));
+                    set(newStopRef, { name: name, lat: e.latlng.lat, lng: e.latlng.lng });
+                    setTool(null);
+                }
+            } 
+            else if (currentTool === 'route') {
+                routePoints.push([e.latlng.lat, e.latlng.lng]);
+                if (!drawingPolyline) {
+                    drawingPolyline = L.polyline(routePoints, {color: '#1a1a1a', weight: 4, dashArray: '5, 5'}).addTo(map);
+                } else {
+                    drawingPolyline.setLatLngs(routePoints);
+                }
+                
+                // ให้ถามเมื่อคลิกเกิน 2 จุด
+                if (routePoints.length > 1 && confirm("สิ้นสุดการวาดเส้นทางนี้หรือไม่?")) {
+                    const name = prompt("ชื่อเส้นทาง (เช่น สายสีเหลือง):");
+                    const color = prompt("สีเส้นทาง (ภาษาอังกฤษ หรือ Hex Code เช่น red, #FFD700):", "red");
+                    if (name && color) {
+                        const newRouteRef = push(ref(db, 'config/routes'));
+                        set(newRouteRef, { name: name, color: color, points: routePoints });
+                    }
+                    setTool(null);
+                }
+            }
+        });
+
+        // --- โหลดป้ายรถ และเส้นทางจาก Firebase มาแสดง ---
+        onValue(ref(db, 'config/stops'), (snapshot) => {
             const data = snapshot.val();
-            const listContainer = document.getElementById('bus-list');
-            listContainer.innerHTML = ''; // เคลียร์รายการเก่า
+            if(data) {
+                Object.values(data).forEach(stop => {
+                    const icon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-violet.png', iconSize: [20,32] });
+                    L.marker([stop.lat, stop.lng], {icon}).addTo(map).bindPopup(`<b>ป้าย:</b> ${stop.name}`);
+                });
+            }
+        });
+        onValue(ref(db, 'config/routes'), (snapshot) => {
+            const data = snapshot.val();
+            if(data) {
+                Object.values(data).forEach(route => {
+                    L.polyline(route.points, {color: route.color, weight: 5, opacity: 0.7}).addTo(map).bindPopup(`<b>สาย:</b> ${route.name}`);
+                });
+            }
+        });
+
+        // --- ติดตามรถปกติ ---
+        let busMarkers = {};
+        onValue(ref(db, 'buses'), (snapshot) => {
+            const data = snapshot.val();
+            const list = document.getElementById('buses-list');
+            list.innerHTML = '';
+            if (data) {
+                for (const id in data) {
+                    const bus = data[id];
+                    if (busMarkers[id]) { busMarkers[id].setLatLng([bus.lat, bus.lng]); }
+                    else {
+                        const icon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png', iconSize: [25, 41] });
+                        busMarkers[id] = L.marker([bus.lat, bus.lng], {icon}).addTo(map).bindPopup(`รถ: ${id}`);
+                    }
+                    list.innerHTML += `<div class="item-card">
+                        <div class="item-title">🚍 ${id}</div>
+                        <div class="item-desc">คนขับ: ${bus.driver}<br>อัปเดต: ${new Date(bus.timestamp).toLocaleTimeString()}</div>
+                    </div>`;
+                }
+            }
+        });
+
+        // --- ติดตามการเรียกรถด่วน ---
+        let expressMarkers = [];
+        onValue(ref(db, 'express_requests'), (snapshot) => {
+            const data = snapshot.val();
+            const list = document.getElementById('express-list');
+            list.innerHTML = '';
+            expressMarkers.forEach(m => map.removeLayer(m)); // เคลียร์หมุดเก่า
+            expressMarkers = [];
 
             if (data) {
-                for (const busId in data) {
-                    const bus = data[busId];
-                    const timeString = new Date(bus.timestamp).toLocaleTimeString();
-                    
-                    // สร้างหรืออัปเดต Marker บนแผนที่
-                    if (markers[busId]) {
-                        markers[busId].setLatLng([bus.lat, bus.lng]);
-                    } else {
-                        const busIcon = L.icon({
-                            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
-                            iconSize: [25, 41], iconAnchor: [12, 41]
-                        });
-                        markers[busId] = L.marker([bus.lat, bus.lng], {icon: busIcon})
-                                          .addTo(map)
-                                          .bindPopup(`<b>${busId}</b><br>คนขับ: ${bus.driver}`);
-                    }
+                // แสดงเรียงจากใหม่สุด (ย้อนกลับ)
+                const reqs = Object.entries(data).reverse(); 
+                reqs.forEach(([key, req]) => {
+                    list.innerHTML += `<div class="item-card">
+                        <div class="item-title"><span class="badge">ด่วน</span> ${req.name}</div>
+                        <div class="item-desc">
+                            <b>โทร:</b> ${req.phone}<br>
+                            <b>เวลาเรียก:</b> ${new Date(req.timestamp).toLocaleTimeString()}<br>
+                            <b>สถานะ:</b> ${req.status === 'waiting' ? 'รอดำเนินการ' : 'รับแล้ว'}
+                        </div>
+                    </div>`;
 
-                    // อัปเดตรายการแถบด้านขวา
-                    const item = document.createElement('div');
-                    item.className = 'bus-item';
-                    item.innerHTML = `
-                        <div class="bus-title"><span class="status-dot"></span>${busId}</div>
-                        <div class="bus-detail">คนขับ: ${bus.driver}</div>
-                        <div class="bus-detail">อัปเดตล่าสุด: ${timeString}</div>
-                        <div class="bus-detail">พิกัด: ${bus.lat.toFixed(5)}, ${bus.lng.toFixed(5)}</div>
-                    `;
-                    listContainer.appendChild(item);
-                }
+                    // ปักหมุดบนแผนที่ Admin
+                    if(req.status === 'waiting') {
+                        const pIcon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png', iconSize: [20, 32] });
+                        const dIcon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png', iconSize: [20, 32] });
+                        
+                        expressMarkers.push(L.marker([req.pickupLat, req.pickupLng], {icon: pIcon}).addTo(map).bindPopup(`รับ: ${req.name}`));
+                        expressMarkers.push(L.marker([req.dropoffLat, req.dropoffLng], {icon: dIcon}).addTo(map).bindPopup(`ส่ง: ${req.name}`));
+                        // วาดเส้นประระหว่างจุดรับ-ส่ง
+                        expressMarkers.push(L.polyline([[req.pickupLat, req.pickupLng], [req.dropoffLat, req.dropoffLng]], {color: 'gray', dashArray: '4', weight: 2}).addTo(map));
+                    }
+                });
             } else {
-                listContainer.innerHTML = '<p style="text-align:center; color:#888;">ยังไม่มีรถในระบบ</p>';
+                list.innerHTML = '<p style="text-align:center; color:#888;">ไม่มีการเรียกรถด่วน</p>';
             }
         });
     </script>
