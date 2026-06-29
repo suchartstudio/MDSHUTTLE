@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - MD Shuttle Bus</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { margin: 0; font-family: sans-serif; display: flex; height: 100vh; overflow: hidden; background-color: #f4f4f9; }
+        #map-container { width: 70%; height: 100%; }
+        #map { width: 100%; height: 100%; }
+        #sidebar { width: 30%; height: 100%; background: white; box-shadow: -2px 0 5px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
+        .header { background-color: #003366; color: white; padding: 20px; text-align: center; }
+        .header h2 { margin: 0; }
+        #bus-list { flex: 1; overflow-y: auto; padding: 15px; }
+        .bus-item { background: #f9f9f9; border: 1px solid #ddd; padding: 15px; margin-bottom: 10px; border-radius: 8px; }
+        .bus-title { font-weight: bold; font-size: 18px; color: #003366; }
+        .bus-detail { font-size: 14px; color: #555; margin-top: 5px; }
+        .status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background-color: #00C851; margin-right: 5px; }
+    </style>
+</head>
+<body>
+
+    <div id="map-container">
+        <div id="map"></div>
+    </div>
+    
+    <div id="sidebar">
+        <div class="header">
+            <h2>Dashboard ควบคุมรถ</h2>
+            <p>โรงพยาบาลศรีนครินทร์</p>
+        </div>
+        <div id="bus-list">
+            </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDMptdLpLEdbeVFKZj82M0gyoV2m_2y5Pk",
+            databaseURL: "https://suchartstudio-9a78d-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "suchartstudio-9a78d",
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // กำหนดพิกัดเริ่มต้นไปที่ รพ.ศรีนครินทร์ ขอนแก่น
+        const map = L.map('map').setView([16.4674, 102.8277], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        let markers = {};
+
+        const busesRef = ref(db, 'buses');
+        onValue(busesRef, (snapshot) => {
+            const data = snapshot.val();
+            const listContainer = document.getElementById('bus-list');
+            listContainer.innerHTML = ''; // เคลียร์รายการเก่า
+
+            if (data) {
+                for (const busId in data) {
+                    const bus = data[busId];
+                    const timeString = new Date(bus.timestamp).toLocaleTimeString();
+                    
+                    // สร้างหรืออัปเดต Marker บนแผนที่
+                    if (markers[busId]) {
+                        markers[busId].setLatLng([bus.lat, bus.lng]);
+                    } else {
+                        const busIcon = L.icon({
+                            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+                            iconSize: [25, 41], iconAnchor: [12, 41]
+                        });
+                        markers[busId] = L.marker([bus.lat, bus.lng], {icon: busIcon})
+                                          .addTo(map)
+                                          .bindPopup(`<b>${busId}</b><br>คนขับ: ${bus.driver}`);
+                    }
+
+                    // อัปเดตรายการแถบด้านขวา
+                    const item = document.createElement('div');
+                    item.className = 'bus-item';
+                    item.innerHTML = `
+                        <div class="bus-title"><span class="status-dot"></span>${busId}</div>
+                        <div class="bus-detail">คนขับ: ${bus.driver}</div>
+                        <div class="bus-detail">อัปเดตล่าสุด: ${timeString}</div>
+                        <div class="bus-detail">พิกัด: ${bus.lat.toFixed(5)}, ${bus.lng.toFixed(5)}</div>
+                    `;
+                    listContainer.appendChild(item);
+                }
+            } else {
+                listContainer.innerHTML = '<p style="text-align:center; color:#888;">ยังไม่มีรถในระบบ</p>';
+            }
+        });
+    </script>
+</body>
+</html>
