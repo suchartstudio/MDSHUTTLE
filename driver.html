@@ -3,25 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MD Shuttle Bus - Driver</title>
+    <title>Driver - MD Shuttle Bus</title>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: sans-serif; background-color: #1a1a1a; color: white; padding: 20px; text-align: center; }
-        h1 { font-size: 28px; color: #FFD700; }
-        input { width: 90%; padding: 15px; margin: 10px 0; font-size: 20px; border-radius: 8px; border: 2px solid #FFD700; box-sizing: border-box; }
-        button { background-color: #FFD700; color: #000; font-size: 24px; font-weight: bold; padding: 20px 40px; border: none; border-radius: 12px; width: 90%; margin-top: 20px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.5); }
-        button.active { background-color: #ff4444; color: white; }
-        #status { margin-top: 20px; font-size: 20px; padding: 15px; border-radius: 8px; }
-        .success { background-color: #007E33; }
-        .error { background-color: #CC0000; }
+        body { font-family: 'Chakra Petch', sans-serif; background-color: #f7f9fc; color: #1a1a1a; padding: 20px; text-align: center; margin: 0; }
+        .container { max-width: 400px; margin: 40px auto; background: #fff; padding: 30px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+        h1 { font-size: 24px; color: #1a1a1a; margin-top: 0; font-weight: 700; }
+        
+        input { width: 100%; padding: 15px; margin: 10px 0; font-size: 18px; font-family: 'Chakra Petch', sans-serif; border-radius: 12px; border: 1px solid #e0e0e0; box-sizing: border-box; background: #fafafa; }
+        button { background-color: #1a1a1a; color: #fff; font-size: 20px; font-weight: 700; font-family: 'Chakra Petch', sans-serif; padding: 15px; border: none; border-radius: 12px; width: 100%; margin-top: 20px; cursor: pointer; transition: 0.3s; }
+        button.active { background-color: #ff3366; }
+        
+        #status { margin-top: 20px; font-size: 16px; padding: 15px; border-radius: 12px; font-weight: 600; background: #eee; color: #666; }
+        .success { background-color: #e8f5e9 !important; color: #2e7d32 !important; border: 1px solid #c8e6c9; }
+        .error { background-color: #ffebee !important; color: #c62828 !important; border: 1px solid #ffcdd2; }
     </style>
 </head>
 <body>
-    <h1>คนขับรถ: MD Shuttle Bus</h1>
-    <input type="text" id="busId" placeholder="หมายเลขรถ (เช่น Bus-01)" required>
-    <input type="text" id="driverName" placeholder="ชื่อคนขับ" required>
-    
-    <button id="toggleBtn">เริ่มส่งตำแหน่ง</button>
-    <div id="status">สถานะ: รอการเริ่มต้น</div>
+    <div class="container">
+        <h1>🚌 ระบบคนขับรถ</h1>
+        <p style="color:#666; font-size:14px;">กรุณากรอกข้อมูลเพื่อเริ่มการส่งพิกัด</p>
+        
+        <input type="text" id="busId" placeholder="หมายเลขรถ (เช่น Bus-01)" required>
+        <input type="text" id="driverName" placeholder="ชื่อคนขับ" required>
+        
+        <button id="toggleBtn">เริ่มส่งตำแหน่ง</button>
+        <div id="status">สถานะ: รอการเริ่มต้น</div>
+    </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
@@ -29,14 +37,9 @@
 
         const firebaseConfig = {
             apiKey: "AIzaSyDMptdLpLEdbeVFKZj82M0gyoV2m_2y5Pk",
-            authDomain: "suchartstudio-9a78d.firebaseapp.com",
             databaseURL: "https://suchartstudio-9a78d-default-rtdb.asia-southeast1.firebasedatabase.app",
             projectId: "suchartstudio-9a78d",
-            storageBucket: "suchartstudio-9a78d.firebasestorage.app",
-            messagingSenderId: "953369646185",
-            appId: "1:953369646185:web:b6dde600e70cf72a6ebef8"
         };
-
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
@@ -48,11 +51,8 @@
         const statusDiv = document.getElementById('status');
 
         async function requestWakeLock() {
-            try {
-                wakeLock = await navigator.wakeLock.request('screen');
-            } catch (err) {
-                console.log('Wake Lock error:', err);
-            }
+            try { wakeLock = await navigator.wakeLock.request('screen'); } 
+            catch (err) { console.log('Wake Lock error:', err); }
         }
 
         function sendLocation() {
@@ -62,34 +62,28 @@
                     const driverName = document.getElementById('driverName').value || 'Unknown';
                     
                     set(ref(db, 'buses/' + busId), {
-                        driver: driverName,
-                        lat: position.coords.latitude,
-                        lng: position.coords.longitude,
-                        timestamp: Date.now()
+                        driver: driverName, lat: position.coords.latitude, lng: position.coords.longitude, timestamp: Date.now()
                     });
                     
                     statusDiv.className = 'success';
-                    statusDiv.innerText = 'อัปเดตตำแหน่งล่าสุดเมื่อ: ' + new Date().toLocaleTimeString();
+                    statusDiv.innerText = '✅ อัปเดตล่าสุด: ' + new Date().toLocaleTimeString();
                 }, (error) => {
                     statusDiv.className = 'error';
-                    statusDiv.innerText = 'ไม่สามารถดึงตำแหน่ง GPS ได้';
+                    statusDiv.innerText = '❌ ไม่สามารถดึงตำแหน่ง GPS ได้';
                 }, { enableHighAccuracy: true });
             }
         }
 
         toggleBtn.addEventListener('click', () => {
-            if (!document.getElementById('busId').value) {
-                alert('กรุณากรอกหมายเลขรถ');
-                return;
-            }
+            if (!document.getElementById('busId').value) { alert('กรุณากรอกหมายเลขรถ'); return; }
             isTracking = !isTracking;
             if (isTracking) {
                 requestWakeLock();
                 toggleBtn.innerText = 'หยุดส่งตำแหน่ง';
                 toggleBtn.classList.add('active');
                 statusDiv.innerText = 'กำลังดึงพิกัด...';
-                sendLocation(); // ส่งทันทีครั้งแรก
-                intervalId = setInterval(sendLocation, 30000); // ส่งทุก 30 วินาที
+                sendLocation();
+                intervalId = setInterval(sendLocation, 30000); // 30s
             } else {
                 if (wakeLock !== null) { wakeLock.release(); wakeLock = null; }
                 toggleBtn.innerText = 'เริ่มส่งตำแหน่ง';
